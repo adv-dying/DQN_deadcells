@@ -1,0 +1,7 @@
+09:36 roll end
+09:54 next roll start
+0.2
+
+07:55 roll start
+08:30 roll end
+0.35
