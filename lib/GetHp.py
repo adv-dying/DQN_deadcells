@@ -55,7 +55,7 @@ class Hp_getter:
     def get_self_hp(self):
         base_address = self.libhl + 0x00048184
         offset_address = ctypes.c_long()
-        offset_list = [0x114, 0x4, 0x60, 0x28, 0x98, 0x68, 0x12C]
+        offset_list = [0x4B0, 0x0, 0x58, 0x68,0x12C]
         self.kernal32.ReadProcessMemory(
             int(self.process_handle),
             base_address,
@@ -77,7 +77,7 @@ class Hp_getter:
     def get_boss_hp(self):
         base_address = self.libhl + 0x00048184
         offset_address = ctypes.c_long()
-        offset_list = [0x6B4, 0x0, 0x18, 0x11C, 0x12C]
+        offset_list = [0x6B8,0x0, 0x18, 0x11C, 0x12C]
         self.kernal32.ReadProcessMemory(
             int(self.process_handle),
             base_address,

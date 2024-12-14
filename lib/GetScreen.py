@@ -1,48 +1,35 @@
-import win32gui, win32ui, win32con
-from PIL import Image
 import torch
 import cv2
 import torchvision.transforms as transforms
-
+import time
+import dxcam
+import win32gui
+import numpy as np
 
 class GetScreen:
     def __init__(self):
         self.transform = transforms.Compose([transforms.ToTensor()])
-
-    def grab(self):
-        hWnd = win32gui.FindWindow(None, "Dead Cells")
-        hWndDC = win32gui.GetWindowDC(hWnd)
-        mfcDC = win32ui.CreateDCFromHandle(hWndDC)
+        self.cam = dxcam.create()
+        hWnd = win32gui.FindWindow(None, "Dead cells")
         left, top, right, bot = win32gui.GetWindowRect(hWnd)
-        width = right - left
-        height = bot - top
-        saveDC = mfcDC.CreateCompatibleDC()
-        saveBitMap = win32ui.CreateBitmap()
-        saveBitMap.CreateCompatibleBitmap(mfcDC, width, height)
-        saveDC.SelectObject(saveBitMap)
-        saveDC.BitBlt((0, 0), (width, height), mfcDC, (0, 0), win32con.SRCCOPY)
-
-        bmpinfo = saveBitMap.GetInfo()
-        bmpstr = saveBitMap.GetBitmapBits(True)
-        im_PIL = Image.frombuffer(
-            "RGB",
-            (bmpinfo["bmWidth"], bmpinfo["bmHeight"]),
-            bmpstr,
-            "raw",
-            "BGRX",
-            0,
-            1,
-        )
-
-        im_PIL = im_PIL.resize((480,270))
-
-        win32gui.DeleteObject(saveBitMap.GetHandle())
-        saveDC.DeleteDC()
-        mfcDC.DeleteDC()
-        win32gui.ReleaseDC(hWnd, hWndDC)
-        tensor=self.transform(im_PIL)
-
+        self.region=(left,top,right,bot)
         
 
-        # shape (3,270,480)  
-        return tensor
+    def grab(self):
+        frames=[]
+        while len(frames)<4:
+            IMG= self.cam.grab(region=self.region)
+            IMG=cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
+            IMG=cv2.resize(IMG,(480,270))
+            frames.append(torch.squeeze(self.transform(IMG)))
+        
+        # shape (4,270,480)  
+        return torch.stack(frames).to('cuda')
+    def show(self):
+        IMG= self.cam.grab(region=self.region)
+        IMG=cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
+        IMG=cv2.resize(IMG,(480,270))
+        cv2.imshow("Screenshot",IMG)
+        cv2.waitKey(0)
+a=GetScreen()
+print(a.grab().shape)

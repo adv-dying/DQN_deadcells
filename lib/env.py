@@ -1,6 +1,5 @@
 from lib import GetScreen, Actions, GetHp
 from lib.SendKey import PressKey, ReleaseKey
-import threading
 import time
 
 UP_ARROW = 0x26
@@ -38,64 +37,13 @@ class env:
 
     def step(self, action, pre_player_hp, pre_Boss_hp):
         Actions.take_action(action)
-        time.sleep(0.1)
         player_hp = self.hp_getter.get_self_hp()
         boss_hp = self.hp_getter.get_boss_hp()
         if boss_hp <= 1:
-            return (self.screen.grab(), 0, boss_hp <= 1, player_hp, boss_hp)
-        # action 0:Shield
-        if action == 0:
-            if (pre_Boss_hp - boss_hp) > 0:
-                return (
-                    self.screen.grab(),
-                    (pre_Boss_hp - boss_hp) * 0.003
-                    - (pre_player_hp - player_hp) * 0.01,
-                    boss_hp <= 1,
-                    player_hp,
-                    boss_hp,
-                )
-            else:
-                return (
-                    self.screen.grab(),
-                    -4 - (pre_player_hp - player_hp) * 0.01,
-                    boss_hp <= 1,
-                    player_hp,
-                    boss_hp,
-                )
-        # return state,reward,is_done
-        # action 1: Roll
-        elif action == 1:
-            return (
-                self.screen.grab(),
-                -(pre_player_hp - player_hp) * 0.012,
-                boss_hp <= 1,
-                player_hp,
-                boss_hp,
-            )
-        if action == 2:
-            if (pre_Boss_hp - boss_hp) > 0:
-                return (
-                    self.screen.grab(),
-                    (
-                        (pre_Boss_hp - boss_hp) * 0.002
-                        - (pre_player_hp - player_hp) * 0.02
-                    ),
-                    boss_hp <= 1,
-                    player_hp,
-                    boss_hp,
-                )
-            else:
-                return (
-                    self.screen.grab(),
-                    (-5 - (pre_player_hp - player_hp) * 0.02),
-                    boss_hp <= 1,
-                    player_hp,
-                    boss_hp,
-                )
-        return (
-            self.screen.grab(),
-            -(pre_player_hp - player_hp) * 0.01,
-            boss_hp <= 1,
-            player_hp,
-            boss_hp,
-        )
+            return (self.screen.grab(), 1000, True, player_hp, boss_hp)
+
+        return (self.screen.grab(), (pre_Boss_hp-boss_hp)*0.07192-(pre_player_hp-player_hp), player_hp <= 1, player_hp, boss_hp)
+        # self.hp=15482
+        # boss.hp=215249
+        # 15482/215249=0.07192
+        # new_state, reward, is_done, self.playerhp, self.bosshp
