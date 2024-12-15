@@ -18,11 +18,14 @@ class GetScreen:
     def grab(self):
         frames=[]
         while len(frames)<4:
-            IMG= self.cam.grab(region=self.region)
+            
+            IMG = self.cam.grab(region=self.region)
+            while IMG is None:
+                IMG = self.cam.grab(region=self.region)
+            
             IMG=cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
             IMG=cv2.resize(IMG,(480,270))
-            frames.append(torch.squeeze(self.transform(IMG)))
-        
+            frames.append(torch.squeeze(self.transform(IMG))/255)
         # shape (4,270,480)  
         return torch.stack(frames).to('cuda')
     def show(self):

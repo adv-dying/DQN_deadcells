@@ -27,5 +27,4 @@ class DQN(nn.Module):
         )
     def forward(self, x):
         x = self.net(x)
-        print(x.shape)
         return self.fc(x)
