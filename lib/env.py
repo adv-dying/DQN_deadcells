@@ -30,7 +30,7 @@ class env:
         ReleaseKey(R)
         time.sleep(10)
         Actions.Move_Right()
-        time.sleep(8)
+        time.sleep(5)
         Actions.Nothing()
         
 
@@ -38,9 +38,10 @@ class env:
         Actions.take_action(action)
         player_hp = self.hp_getter.get_self_hp()
         boss_hp = self.hp_getter.get_boss_hp()
-        if boss_hp <= 1:
+        if boss_hp <= 1 and player_hp>1:
             return (100, True, player_hp, boss_hp)
-
+        if boss_hp <= 1 and player_hp<=1 :
+            return (-100, True, player_hp, boss_hp)
         return ((pre_Boss_hp-boss_hp)*0.0007192-(pre_player_hp-player_hp)*0.01, player_hp <= 1, player_hp, boss_hp)
         # self.hp=15482
         # boss.hp=215249

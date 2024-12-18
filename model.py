@@ -18,7 +18,7 @@ class DQN(nn.Module):
         
         # Fully Connected Layers
         self.fc = nn.Sequential(
-            nn.Linear(420, 512),  # Match the flattened size
+            nn.Linear(26880, 512),  # Match the flattened size
             nn.ReLU(),
             nn.Dropout(0.2),  # Dropout to prevent overfitting
             nn.Linear(512, 512),
