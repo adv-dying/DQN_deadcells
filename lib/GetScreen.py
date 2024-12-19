@@ -13,7 +13,6 @@ class GetScreen:
         hWnd = win32gui.FindWindow(None, "Dead cells")
         left, top, right, bot = win32gui.GetWindowRect(hWnd)
         self.region=(left,top,right,bot)
-        
 
     def grab(self):
         frames=[]
@@ -34,5 +33,3 @@ class GetScreen:
         IMG=cv2.resize(IMG,(480,270))
         cv2.imshow("Screenshot",IMG)
         cv2.waitKey(0)
-a=GetScreen()
-print(a.grab().shape)

@@ -32,17 +32,25 @@ class env:
         Actions.Move_Right()
         time.sleep(5)
         Actions.Nothing()
-        
 
     def step(self, action, pre_player_hp, pre_Boss_hp):
         Actions.take_action(action)
         player_hp = self.hp_getter.get_self_hp()
         boss_hp = self.hp_getter.get_boss_hp()
-        if boss_hp <= 1 and player_hp>1:
+
+        player_hp_fraction = player_hp / 15482
+
+        if boss_hp <= 1 and player_hp > 1:
             return (100, True, player_hp, boss_hp)
-        if boss_hp <= 1 and player_hp<=1 :
+        if boss_hp <= 1 and player_hp <= 1:
             return (-100, True, player_hp, boss_hp)
-        return ((pre_Boss_hp-boss_hp)*0.0007192-(pre_player_hp-player_hp)*0.01, player_hp <= 1, player_hp, boss_hp)
+
+        boss_damaged = (pre_Boss_hp - boss_hp) * 0.001 * player_hp_fraction
+        player_damaged = (pre_player_hp - player_hp) * -0.02
+        dodge_bonus = 0
+        if action in [1, 2, 3] and (pre_player_hp - player_hp) == 0:
+            dodge_bonus = 0.05*player_hp_fraction
+        return (boss_damaged + player_damaged + dodge_bonus, player_hp <= 1, player_hp, boss_hp)
         # self.hp=15482
         # boss.hp=215249
         # 15482/215249=0.07192

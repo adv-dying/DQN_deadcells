@@ -19,11 +19,12 @@ NUM_1 = 0x31
 NUM_2 = 0x32
 
 # 0
+
+
 def Nothing():
     ReleaseKey(LEFT_ARROW)
     ReleaseKey(RIGHT_ARROW)
     pass
-
 
 
 # 1
@@ -75,7 +76,7 @@ def Shield():
 
 
 # List for action functions
-Actions = [Attack,Shield, Roll, Jump, Move_Left, Move_Right, Nothing]
+Actions = [Attack, Shield, Roll, Jump, Move_Left, Move_Right, Nothing]
 
 
 # Run the action
