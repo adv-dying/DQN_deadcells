@@ -18,12 +18,12 @@ class DQN(nn.Module):
         
         # Fully Connected Layers
         self.fc = nn.Sequential(
-            nn.Linear(26880, 512),  # Match the flattened size
+            nn.Linear(1600, 512),  
             nn.ReLU(),
-            nn.Dropout(0.2),  # Dropout to prevent overfitting
+            nn.Dropout(0.2),
             nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Linear(512, action_dim)  # Output size matches the action space
+            nn.Linear(512, action_dim)
         )
     def forward(self, x):
         x = self.net(x)

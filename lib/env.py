@@ -49,7 +49,7 @@ class env:
         player_damaged = (pre_player_hp - player_hp) * -0.02
         dodge_bonus = 0
         if action in [1, 2, 3] and (pre_player_hp - player_hp) == 0:
-            dodge_bonus = 0.05*player_hp_fraction
+            dodge_bonus = 0.2*player_hp_fraction
         return (boss_damaged + player_damaged + dodge_bonus, player_hp <= 1, player_hp, boss_hp)
         # self.hp=15482
         # boss.hp=215249
