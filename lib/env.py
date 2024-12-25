@@ -42,14 +42,12 @@ class env:
 
         if boss_hp <= 1 and player_hp > 1:
             return (100, True, player_hp, boss_hp)
-        if boss_hp <= 1 and player_hp <= 1:
-            return (-100, True, player_hp, boss_hp)
 
         boss_damaged = (pre_Boss_hp - boss_hp) * 0.001 * player_hp_fraction
         player_damaged = (pre_player_hp - player_hp) * -0.02
         dodge_bonus = 0
         if action in [1, 2, 3] and (pre_player_hp - player_hp) == 0:
-            dodge_bonus = 0.2*player_hp_fraction
+            dodge_bonus = 0.1*player_hp_fraction
         return (boss_damaged + player_damaged + dodge_bonus, player_hp <= 1, player_hp, boss_hp)
         # self.hp=15482
         # boss.hp=215249
