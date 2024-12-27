@@ -48,7 +48,7 @@ def Attack():
     time.sleep(0.1)
     ReleaseKey(NUM_1)
     Nothing()
-    time.sleep(0.1)
+    time.sleep(0.2)
 
 
 # 4
@@ -68,7 +68,7 @@ def Roll():
 
 # 6
 def Shield():
-    time.sleep(0.2)
+
     Nothing()
     PressKey(NUM_2)
     time.sleep(0.1)
@@ -83,4 +83,3 @@ Actions = [Attack, Shield, Roll, Jump, Move_Left, Move_Right, Nothing]
 # Run the action
 def take_action(action):
     Actions[action]()
-
