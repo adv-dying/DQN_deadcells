@@ -23,13 +23,13 @@ class GetScreen:
                 IMG = self.cam.grab(region=self.region)
             
             IMG=cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
-            IMG=cv2.resize(IMG,(100,100))
+            IMG=cv2.resize(IMG,(84,84))
             frames.append(torch.squeeze(self.transform(IMG))/255)
         # shape (1,4,270,480)  
-        return torch.unsqueeze(torch.stack(frames).to('cuda'),0)
+        return torch.stack(frames).to('cuda')
     def show(self):
         IMG= self.cam.grab(region=self.region)
         IMG=cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
-        IMG=cv2.resize(IMG,(100,100))
+        IMG=cv2.resize(IMG,(84,84))
         cv2.imshow("Screenshot",IMG)
         cv2.waitKey(0)
