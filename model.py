@@ -49,10 +49,9 @@ class DQN(nn.Module):
         x = self.net(x)
         a = self.fc1(x)
         a = self.a(a)
-        print(a.shape)
+ 
         v = self.fc2(x)
         v = self.v(v)
-        print(v.shape)
-        print(a.mean(dim=-1, keepdim=True).shape)
+
         q = v + (a - a.mean(dim=-1, keepdim=True))  # Combine streams
         return q
