@@ -37,19 +37,34 @@ class env:
         Actions.take_action(action)
         player_hp = self.hp_getter.get_self_hp()
         boss_hp = self.hp_getter.get_boss_hp()
+        is_done = player_hp <= 1
 
-        player_hp_fraction = player_hp / 15482
-
+        # Win and lose conditions
         if boss_hp <= 1 and player_hp > 1:
-            return (100, True, player_hp, boss_hp)
+            return (10, True, player_hp, boss_hp)  # Win
+        if boss_hp <= 1 and player_hp <= 1:
+            return (-10, True, player_hp, boss_hp)  # Draw
 
-        boss_damaged = (pre_Boss_hp - boss_hp) * 0.001 * player_hp_fraction
-        player_damaged = (pre_player_hp - player_hp) * -0.02
-        dodge_bonus = 0
-        if action in [1, 2, 3] and (pre_player_hp - player_hp) == 0:
-            dodge_bonus = 0.1*player_hp_fraction
-        return (boss_damaged + player_damaged + dodge_bonus, player_hp <= 1, player_hp, boss_hp)
-        # self.hp=15482
-        # boss.hp=215249
-        # 15482/215249=0.07192
-        # new_state, reward, is_done, self.playerhp, self.bosshp
+        boss_damaged = pre_Boss_hp - boss_hp
+        player_damaged = pre_player_hp - player_hp
+
+        # Normalize damages
+        normalized_boss_damage = min(boss_damaged / 2000, 1)  # Cap at 2000
+        normalized_player_damage = min(player_damaged / 1000, 1)  # Cap at 1000
+
+        # Reward for damaging the boss
+        boss_damaged_reward = 3 * normalized_boss_damage
+
+        # Penalty for taking damage
+        player_damaged_penalty = -5 * normalized_player_damage
+
+        # Reward for dodging
+        dodge_reward = 0.2 if action in [1, 2, 3] and player_damaged == 0 else 0
+
+        # Calculate total reward
+        total_reward = boss_damaged_reward + player_damaged_penalty + dodge_reward
+
+        # Clip the reward to keep it within a desired range
+        total_reward = max(min(total_reward, 5), -5)
+
+        return (total_reward, is_done, player_hp, boss_hp)
