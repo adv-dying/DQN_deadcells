@@ -77,9 +77,15 @@ def Shield():
 
 
 # List for action functions
-Actions = [Attack, Shield, Roll, Jump, Move_Left, Move_Right, Nothing]
-
+Actions = [Attack, Shield, Roll, Jump, Nothing]
+Move = [Move_Left, Move_Right, Nothing]
 
 # Run the action
+
+
 def take_action(action):
     Actions[action]()
+
+
+def take_move(move):
+    Move[move]()

@@ -9,16 +9,20 @@ R = 0x52
 class env:
     def __init__(self):
         self.hp_getter = GetHp.Hp_getter()
+        self.win = 0
 
     def _reset(self):
         Actions.Nothing()
-        time.sleep(4)
+        time.sleep(10)
+        print('move right')
+        Actions.Move_Right()
+        print('Press the R')
         PressKey(R)
         time.sleep(0.1)
         ReleaseKey(R)
-        Actions.Move_Right()
         time.sleep(1)
         Actions.Nothing()
+
         # PressKey(UP_ARROW)
         # time.sleep(3.5)
         # ReleaseKey(UP_ARROW)
@@ -33,7 +37,8 @@ class env:
         time.sleep(5)
         Actions.Nothing()
 
-    def step(self, action, pre_player_hp, pre_Boss_hp):
+    def step(self, move, action, pre_player_hp, pre_Boss_hp):
+        Actions.take_move(move)
         Actions.take_action(action)
         player_hp = self.hp_getter.get_self_hp()
         boss_hp = self.hp_getter.get_boss_hp()
@@ -41,9 +46,13 @@ class env:
 
         # Win and lose conditions
         if boss_hp <= 1 and player_hp > 1:
+            self.win += 1
+            print(f'win:{self.win}')
             return (10, True, player_hp, boss_hp)  # Win
+
         if boss_hp <= 1 and player_hp <= 1:
-            return (-10, True, player_hp, boss_hp)  # Draw
+            print(f'win:{self.win}')
+            return (-10, True, player_hp, boss_hp)  # Loss
 
         boss_damaged = pre_Boss_hp - boss_hp
         player_damaged = pre_player_hp - player_hp
@@ -59,7 +68,8 @@ class env:
         player_damaged_penalty = -5 * normalized_player_damage
 
         # Reward for dodging
-        dodge_reward = 0.2 if action in [1, 2, 3] and player_damaged == 0 else 0
+        dodge_reward = 0.2 if action in [
+            1, 2, 3] and player_damaged == 0 else 0
 
         # Calculate total reward
         total_reward = boss_damaged_reward + player_damaged_penalty + dodge_reward
