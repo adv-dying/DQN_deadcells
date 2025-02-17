@@ -33,19 +33,19 @@ EPS_START = 0.9
 EPS_END = 0.02
 EPS_DECAY = 10000
 TAU = 0.001
-
 LR = 5e-4
+MIN_PROB = 0.05
 
 device = 'cuda'
 # %%
 writepath = 'runs/dueling_double_DQN'+'_batch_' + \
     str(BATCH_SIZE)+'_EPS_DECAY_'+str(EPS_DECAY) + \
-    '_TAU_'+str(TAU)+'reward_cap_action_move_seperate'
+    '_TAU_'+str(TAU)+'reward_cap_action_move_seperate+prioritized_replay_buffer'
 writer = SummaryWriter(log_dir=writepath)
 # %%
 
 Experience = collections.namedtuple(
-    "Experience", field_names=["state", "move", "action", "reward", "done", "new_state"]
+    "Experience", field_names=["state", "move", "action", "reward", "done", "new_state", "TD_move", "TD_action"]
 )
 
 
@@ -59,18 +59,40 @@ class ExperienceBuffer:
     def append(self, experience):
         self.buffer.append(experience)
 
-    def sample(self, batch_size):
-        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
-        state, move, action, reward, dones, next_state = zip(
+    def sample_move(self, batch_size):
+        priorities = np.array([experience.TD_move +
+                               MIN_PROB for experience in self.buffer])
+        priorities = priorities/np.sum(priorities)
+        indices = np.random.choice(
+            len(self.buffer), batch_size, replace=False, p=priorities)
+        state, move, action, reward, dones, next_state, _, _ = zip(
             *[self.buffer[idx] for idx in indices]
         )
         return (
             torch.stack(state),
             np.array(move),
+            np.array(reward, dtype=np.float32),
+            np.array(dones, dtype=np.bool8),
+            torch.stack(next_state),
+            indices
+        )
+
+    def sample_action(self, batch_size):
+        priorities = np.array([experience.TD_action +
+                               MIN_PROB for experience in self.buffer])
+        priorities = priorities/np.sum(priorities)
+        indices = np.random.choice(
+            len(self.buffer), batch_size, replace=False, p=priorities)
+        state, move, action, reward, dones, next_state, _, _ = zip(
+            *[self.buffer[idx] for idx in indices]
+        )
+        return (
+            torch.stack(state),
             np.array(action),
             np.array(reward, dtype=np.float32),
             np.array(dones, dtype=np.bool8),
             torch.stack(next_state),
+            indices
         )
 
 
@@ -132,8 +154,8 @@ class Agent:
         self.hpgetter = GetHp.Hp_getter()
         self.criterion = nn.SmoothL1Loss()
 
-        # self.min_reward = -0.01
-        # self.max_reward = 0.01
+        self.max_l_m = 0.0
+        self.max_l_a = 0.0
         # self._reset()
 
     def _reset(self):
@@ -173,7 +195,7 @@ class Agent:
         # normalize_reward = (reward - self.min_reward) / \
         #     (self.max_reward - self.min_reward)
         exp = Experience(self.state, move, action,
-                         reward, is_done, new_state)
+                         reward, is_done, new_state, self.max_l_m, self.max_l_a)
         self.buffer.append(exp)
 
         self.state = new_state
@@ -185,11 +207,10 @@ class Agent:
 
         return done_reward
 
-    def cal_loss(self, batch, move_net, move_tgt_net, action_net, action_tgt_net, device="cuda"):
-        state, move, action, reward, done, next_state = batch
+    def cal_loss(self, batch, net, tgt_net, device="cuda"):
+        state, action, reward, done, next_state, _ = batch
 
         state_v = state.to(device)
-        move_v = torch.tensor(move, dtype=torch.int64).to(device)
         action_v = torch.tensor(action, dtype=torch.int64).to(device)
         reward_v = torch.tensor(reward).to(device)
         next_state_v = next_state.to(device)
@@ -198,42 +219,70 @@ class Agent:
         #     net(state_v).gather(
         #         1, action_v.unsqueeze(-1).type(torch.long)).squeeze(-1)
         # )
-        state_move_value = (move_net(state_v).gather(
-            1, move_v.unsqueeze(-1))).squeeze(-1)
-        state_action_value = (action_net(state_v).gather(
+
+        state_value = (net(state_v).gather(
             1, action_v.unsqueeze(-1))).squeeze(-1)
 
         with torch.no_grad():
-            argmax_m = move_net(next_state_v).argmax(dim=1).unsqueeze(-1)
-            argmax_a = action_net(next_state_v).argmax(dim=1).unsqueeze(-1)
-            next_state_value_m = move_tgt_net(
-                next_state_v).gather(1, argmax_m).squeeze(1)
-            next_state_value_a = action_tgt_net(
+
+            argmax_a = net(next_state_v).argmax(dim=1).unsqueeze(-1)
+            next_state_value = tgt_net(
                 next_state_v).gather(1, argmax_a).squeeze(1)
+
             # next_state_value = tgt_net(next_state_v).max(1)[0]
-            next_state_value_m[done] = 0.0
-            next_state_value_a[done] = 0.0
-        expected_state_move = next_state_value_m*GAMMA+reward_v
-        expected_state_action = next_state_value_a * GAMMA + reward_v
+            next_state_value[done] = 0.0
 
-        return self.criterion(state_move_value, expected_state_move), self.criterion(state_action_value, expected_state_action)
+        expected_state = next_state_value * GAMMA + reward_v
+        loss = self.criterion(state_value, expected_state)
+        td_error = np.absolute(
+            (expected_state-state_value).detach().cpu().numpy())
+        return loss, td_error
 
-    def optimize_model(self, idx):
+    def update_td_move(self, index, td_m, a=0.1):
+        for td_idx, idx in enumerate(index):
+            self.buffer.buffer[idx] = self.buffer.buffer[idx]._replace(TD_move=self.buffer.buffer[idx].TD_move *
+                                                         (1-a)+td_m[td_idx]*a)
+
+    def update_td_action(self, index, td_a, a=0.1):
+        for td_idx, idx in enumerate(index):
+            self.buffer.buffer[idx] = self.buffer.buffer[idx]._replace(TD_action=self.buffer.buffer[idx].TD_action *
+                                                         (1-a)+td_a[td_idx]*a)
+
+    def optimize_model(self, frame_idx):
         if buffer.__len__() < BATCH_SIZE:
             return
-        batch = buffer.sample(BATCH_SIZE)
-        loss_m, loss_a = self.cal_loss(
-            batch, move_net, move_tgt_net, action_net, action_tgt_net)
-        writer.add_scalar("loss/lossm", loss_m, idx)
-        writer.add_scalar("loss/lossa", loss_a, idx)
+        # batch = buffer.sample(BATCH_SIZE)
+        # loss_m, loss_a = self.cal_loss(
+        #     batch, move_net, move_tgt_net, action_net, action_tgt_net)
+
+        batch_m = self.buffer.sample_move(BATCH_SIZE)
+        batch_a = self.buffer.sample_action(BATCH_SIZE)
+
+        loss_m, td_m = self.cal_loss(batch_m, move_net, move_tgt_net)
+        loss_a, td_a = self.cal_loss(batch_a, action_net, action_tgt_net)
+
+        max_td_m = max(td_m)
+        max_td_a = max(td_a)
+
+        if max_td_m > self.max_l_m:
+            self.max_l_m = max_td_m
+        if max_td_a > self.max_l_a:
+            self.max_l_a = max_td_a
+
+        self.update_td_move(batch_m[5], td_m)
+        self.update_td_action(batch_a[5], td_a)
+
+        writer.add_scalar("loss/lossm", loss_m, frame_idx)
+        writer.add_scalar("loss/lossa", loss_a, frame_idx)
+
         move_optimizer.zero_grad()
         loss_m.backward()
-        torch.nn.utils.clip_grad_value_(move_net.parameters(), 100)
+        torch.nn.utils.clip_grad_value_(move_net.parameters(), 10)
         move_optimizer.step()
 
         action_optimizer.zero_grad()
         loss_a.backward()
-        torch.nn.utils.clip_grad_value_(action_net.parameters(), 100)
+        torch.nn.utils.clip_grad_value_(action_net.parameters(), 10)
         action_optimizer.step()
 
         # sync the tgt_net hard
@@ -340,6 +389,11 @@ if __name__ == '__main__':
         # play a step
         if keyboard.is_pressed('q'):
             break
+        elif keyboard.is_pressed('p'):
+            while True:
+                if keyboard.is_pressed('p'):
+                    break
+            agent._reset()
         done_reward = agent.play_step(move_net, action_net, epsilon, device)
         agent.optimize_model(frame_idx)
 
