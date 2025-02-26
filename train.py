@@ -139,7 +139,7 @@ try:
         buffer = pickle.load(f)
     print("load buffer")
 except:
-    buffer = ExperienceBuffer(capacity=10000)
+    buffer = ExperienceBuffer(capacity=40000)
     print("new buffer")
 
 # %%

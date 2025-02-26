@@ -9,10 +9,13 @@ class DQN(nn.Module):
         # Convolutional Layers
         self.net = nn.Sequential(
             nn.Conv2d(4, 32, kernel_size=8, stride=4),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.Conv2d(64, 128, kernel_size=3, stride=2),
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.Flatten(),
         )
@@ -20,10 +23,13 @@ class DQN(nn.Module):
         # Fully Connected Layers
         self.fc = nn.Sequential(
             nn.Linear(4608, 512),
+            nn.LayerNorm(512),
             nn.ReLU(),
             nn.Linear(512, 256),
+            nn.LayerNorm(256),
             nn.ReLU(),
             nn.Linear(256, 128),
+            nn.LayerNorm(128),
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.LayerNorm(128),
