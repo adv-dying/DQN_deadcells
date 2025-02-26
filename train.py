@@ -16,15 +16,9 @@ from torch.utils.tensorboard import SummaryWriter
 import time
 import random
 import pickle
-
-import torch.backends.cudnn as cudnn
-
 import keyboard
+import sys
 
-cudnn.deterministic = True
-
-cudnn.benchmark = True
-torch.backends.cudnn.enabled = True
 
 # %%
 BATCH_SIZE = 64
@@ -32,15 +26,14 @@ GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.02
 EPS_DECAY = 10000
-TAU = 0.001
-LR = 5e-4
-MIN_PROB = 0.05
+TAU = 0.005
+LR = 1e-4
+MIN_PROB = 0.01
+ALPHA = 0.6
 
 device = 'cuda'
 # %%
-writepath = 'runs/dueling_double_DQN'+'_batch_' + \
-    str(BATCH_SIZE)+'_EPS_DECAY_'+str(EPS_DECAY) + \
-    '_TAU_'+str(TAU)+'reward_cap_action_move_seperate+prioritized_replay_buffer'
+writepath = f'runs/dueling_double_DQN_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4_reward_cap_action_move_seperate+prioritized_replay_buffer+grab(128,128)_layer_norm_ALPHA_{str(ALPHA)}_linear_updatetd'
 writer = SummaryWriter(log_dir=writepath)
 # %%
 
@@ -60,8 +53,8 @@ class ExperienceBuffer:
         self.buffer.append(experience)
 
     def sample_move(self, batch_size):
-        priorities = np.array([experience.TD_move +
-                               MIN_PROB for experience in self.buffer])
+        priorities = np.array([(experience.TD_move +
+                               MIN_PROB)**ALPHA for experience in self.buffer])
         priorities = priorities/np.sum(priorities)
         indices = np.random.choice(
             len(self.buffer), batch_size, replace=False, p=priorities)
@@ -78,8 +71,8 @@ class ExperienceBuffer:
         )
 
     def sample_action(self, batch_size):
-        priorities = np.array([experience.TD_action +
-                               MIN_PROB for experience in self.buffer])
+        priorities = np.array([(experience.TD_action +
+                               MIN_PROB)**ALPHA for experience in self.buffer])
         priorities = priorities/np.sum(priorities)
         indices = np.random.choice(
             len(self.buffer), batch_size, replace=False, p=priorities)
@@ -94,6 +87,16 @@ class ExperienceBuffer:
             torch.stack(next_state),
             indices
         )
+
+    def update_td_move(self, index, td_m, a=0.7):
+        for td_idx, idx in enumerate(index):
+            self.buffer[idx] = self.buffer[idx]._replace(TD_move=self.buffer[idx].TD_move *
+                                                         (1-a)+td_m[td_idx]*a)
+
+    def update_td_action(self, index, td_a, a=0.7):
+        for td_idx, idx in enumerate(index):
+            self.buffer[idx] = self.buffer[idx]._replace(TD_action=self.buffer[idx].TD_action *
+                                                         (1-a)+td_a[td_idx]*a)
 
 
 # %%
@@ -154,14 +157,17 @@ class Agent:
         self.hpgetter = GetHp.Hp_getter()
         self.criterion = nn.SmoothL1Loss()
 
-        self.max_l_m = 0.0
-        self.max_l_a = 0.0
         # self._reset()
 
     def _reset(self):
-        self.env._reset()
+
         self.state = self.get_screen.grab()
         self.total_rewards = 0.0
+
+        self.hpgetter.set_self_hp(19192)
+        result = self.hpgetter.set_boss_hp(230437)
+        if result:
+            self.env._reset()
         self.bosshp = self.hpgetter.get_boss_hp()
         self.playerhp = self.hpgetter.get_self_hp()
 
@@ -180,22 +186,23 @@ class Agent:
             move = int(move_v[0].item())
             action = int(act_v[0].item())
 
-        # Actions = [Attack,Shield, Roll, Jump, Move_Left, Move_Right, Nothing]
-        reward, is_done, self.playerhp, self.bosshp = self.env.step(
+        reward, is_done, self.playerhp, self.bosshp, player_damaged, boss_damaged = self.env.step(
             move, action, self.playerhp, self.bosshp
         )
-        # self.min_reward = min(self.min_reward, reward)
-        # self.max_reward = max(self.max_reward, reward)
-        if reward != 0:
-            print(
-                f"move:{move},action:{action},reward:{reward:.2f},bosshp:{self.bosshp},selfhp:{self.playerhp} ")
+        if player_damaged != 0:
+            writer.add_scalar('damage/player', player_damaged, frame_idx)
+        if boss_damaged != 0:
+            writer.add_scalar('damage/boss', boss_damaged, frame_idx)
+        # if reward!=0:
+        # print(
+        #     f'reward:{reward},move:{move},action:{action}, is_done:{is_done}')
+        sys.stdout.write(f'\rreward:{reward},move:{move},action:{action}, is_done:{is_done}')
+        sys.stdout.flush()
         new_state = self.get_screen.grab()
         self.total_rewards += reward
 
-        # normalize_reward = (reward - self.min_reward) / \
-        #     (self.max_reward - self.min_reward)
         exp = Experience(self.state, move, action,
-                         reward, is_done, new_state, self.max_l_m, self.max_l_a)
+                         reward, is_done, new_state, 1.0, 1.0)
         self.buffer.append(exp)
 
         self.state = new_state
@@ -203,7 +210,6 @@ class Agent:
         if is_done:
             Actions.Nothing()
             done_reward = self.total_rewards
-            # print("reward:%.2f" % (done_reward), end='\r')
 
         return done_reward
 
@@ -238,16 +244,6 @@ class Agent:
             (expected_state-state_value).detach().cpu().numpy())
         return loss, td_error
 
-    def update_td_move(self, index, td_m, a=0.1):
-        for td_idx, idx in enumerate(index):
-            self.buffer.buffer[idx] = self.buffer.buffer[idx]._replace(TD_move=self.buffer.buffer[idx].TD_move *
-                                                         (1-a)+td_m[td_idx]*a)
-
-    def update_td_action(self, index, td_a, a=0.1):
-        for td_idx, idx in enumerate(index):
-            self.buffer.buffer[idx] = self.buffer.buffer[idx]._replace(TD_action=self.buffer.buffer[idx].TD_action *
-                                                         (1-a)+td_a[td_idx]*a)
-
     def optimize_model(self, frame_idx):
         if buffer.__len__() < BATCH_SIZE:
             return
@@ -264,16 +260,13 @@ class Agent:
         max_td_m = max(td_m)
         max_td_a = max(td_a)
 
-        if max_td_m > self.max_l_m:
-            self.max_l_m = max_td_m
-        if max_td_a > self.max_l_a:
-            self.max_l_a = max_td_a
-
-        self.update_td_move(batch_m[5], td_m)
-        self.update_td_action(batch_a[5], td_a)
+        self.buffer.update_td_move(batch_m[5], td_m)
+        self.buffer.update_td_action(batch_a[5], td_a)
 
         writer.add_scalar("loss/lossm", loss_m, frame_idx)
         writer.add_scalar("loss/lossa", loss_a, frame_idx)
+        writer.add_scalar("td/max_td_action", max_td_a, frame_idx)
+        writer.add_scalar("td/max_td_move", max_td_m, frame_idx)
 
         move_optimizer.zero_grad()
         loss_m.backward()
@@ -332,7 +325,7 @@ if __name__ == '__main__':
         if done_reward is not None:
             # one loop ends
             # avoid Deadcells break
-            if done_reward == 10:
+            if done_reward == 100:
                 break
 
             total_rewards.append(done_reward)
@@ -354,6 +347,7 @@ if __name__ == '__main__':
 
             # save model
             if frame_idx//10000 > pre_save:
+                agent._reset()
                 pre_save += 1
                 torch.save(move_net.state_dict(),
                            "./checkpoints/best_move_model.pt")
@@ -389,10 +383,15 @@ if __name__ == '__main__':
         # play a step
         if keyboard.is_pressed('q'):
             break
-        elif keyboard.is_pressed('p'):
+        if keyboard.is_pressed('p'):
+            print('pause')
+            time.sleep(5)
             while True:
                 if keyboard.is_pressed('p'):
+                    print('reset')
+                    time.sleep(1)
                     break
+
             agent._reset()
         done_reward = agent.play_step(move_net, action_net, epsilon, device)
         agent.optimize_model(frame_idx)
@@ -400,8 +399,11 @@ if __name__ == '__main__':
     writer.close()
 
     # # %%
-    # torch.save(net.state_dict(), "./checkpoints/best_model.pt")
-    # np.save("./checkpoints/frame.npy", frame_idx)
-    # np.save("./checkpoints/total_rewards.npy", total_rewards)
-    # with open("./checkpoints/buffer.pickle", "wb") as f:
-    #     pickle.dump(copy.deepcopy(buffer), f)
+    torch.save(move_net.state_dict(), "./checkpoints/best_move_model.pt")
+    torch.save(action_net.state_dict(),
+               "./checkpoints/best_action_model.pt")
+    np.save("./checkpoints/frame.npy", frame_idx)
+    np.save("./checkpoints/total_rewards.npy", total_rewards)
+    # save buffer
+    with open("./checkpoints/buffer.pickle", "wb") as f:
+        pickle.dump(copy.deepcopy(buffer), f)

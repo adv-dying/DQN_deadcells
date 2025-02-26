@@ -44,15 +44,20 @@ class env:
         boss_hp = self.hp_getter.get_boss_hp()
         is_done = player_hp <= 1
 
-        # Win and lose conditions
-        if boss_hp <= 1 and player_hp > 1:
-            self.win += 1
-            print(f'win:{self.win}')
-            return (10, True, player_hp, boss_hp)  # Win
+        boss_damaged = 0
+        player_damaged = 0
 
-        if boss_hp <= 1 and player_hp <= 1:
-            print(f'win:{self.win}')
-            return (-10, True, player_hp, boss_hp)  # Loss
+        # Win and lose conditions
+        if player_hp > 3000 and boss_hp <= 10000:
+            self.win += 1
+            print(f'win,total_win:{self.win}')
+            # Win
+            return (100, True, player_hp, boss_hp, player_damaged, boss_damaged)
+
+        if player_hp <= 3000:
+            print(f'loss,total_win:{self.win}')
+            # Loss
+            return (-10, True, player_hp, boss_hp, player_damaged, boss_damaged)
 
         boss_damaged = pre_Boss_hp - boss_hp
         player_damaged = pre_player_hp - player_hp
@@ -68,8 +73,8 @@ class env:
         player_damaged_penalty = -5 * normalized_player_damage
 
         # Reward for dodging
-        dodge_reward = 0.2 if action in [
-            1, 2, 3] and player_damaged == 0 else 0
+        dodge_reward = 0.2 if action in {
+            1, 2, 3} and player_damaged == 0 else 0
 
         # Calculate total reward
         total_reward = boss_damaged_reward + player_damaged_penalty + dodge_reward
@@ -77,4 +82,4 @@ class env:
         # Clip the reward to keep it within a desired range
         total_reward = max(min(total_reward, 5), -5)
 
-        return (total_reward, is_done, player_hp, boss_hp)
+        return (total_reward, is_done, player_hp, boss_hp, player_damaged, boss_damaged)

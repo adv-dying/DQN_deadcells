@@ -76,8 +76,12 @@ def Shield():
     time.sleep(0.1)
 
 
+def Nothing_action():
+    time.sleep(0.2)
+
+
 # List for action functions
-Actions = [Attack, Shield, Roll, Jump, Nothing]
+Actions = [Attack, Shield, Roll, Jump, Nothing_action]
 Move = [Move_Left, Move_Right, Nothing]
 
 # Run the action
