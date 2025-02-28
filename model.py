@@ -12,7 +12,7 @@ class DQN(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=5, stride=3),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.ReLU(),  
+            nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Flatten(),
         )
@@ -30,8 +30,6 @@ class DQN(nn.Module):
         self.a = nn.Linear(256, action_dim)
         self.v = nn.Linear(256, 1)
 
-        self.soft_max = nn.Softmax()
-
     def forward(self, x):
         x = self.net(x)
 
@@ -40,9 +38,10 @@ class DQN(nn.Module):
         v = self.v(x)
 
         q = v + (a - a.mean(dim=-1, keepdim=True))
-        q = self.soft_max(q)
         return q
-if __name__=='__main__':
-    a=torch.rand((1,4,84,84))
-    net=DQN(3)
+
+
+if __name__ == '__main__':
+    a = torch.rand((1, 4, 84, 84))
+    net = DQN(3)
     net(a)

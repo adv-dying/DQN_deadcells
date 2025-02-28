@@ -250,7 +250,6 @@ class Agent:
             next_state_value = tgt_net(
                 next_state_v).gather(1, argmax_a).squeeze(1)
 
-            # next_state_value = tgt_net(next_state_v).max(1)[0]
             next_state_value[done] = 0.0
 
         expected_state = next_state_value * GAMMA + reward_v
@@ -262,9 +261,6 @@ class Agent:
     def optimize_model(self, frame_idx, beta):
         if buffer.__len__() < BATCH_SIZE:
             return
-        # batch = buffer.sample(BATCH_SIZE)
-        # loss_m, loss_a = self.cal_loss(
-        #     batch, move_net, move_tgt_net, action_net, action_tgt_net)
 
         batch_m, indice_m, weight_m = self.buffer.sample_move(BATCH_SIZE, beta)
         batch_a, indice_a, weight_a = self.buffer.sample_action(
@@ -304,10 +300,7 @@ class Agent:
         torch.nn.utils.clip_grad_value_(action_net.parameters(), 10)
         action_optimizer.step()
 
-        # sync the tgt_net hard
-        # if idx % 100 == 0:
-        #     print('sync', end='\r')
-        #     tgt_net.load_state_dict(net.state_dict())
+
         # change to soft sync
         move_tgt_net_state_dict = move_tgt_net.state_dict()
         move_net_state_dict = move_net.state_dict()
