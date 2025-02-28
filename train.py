@@ -68,7 +68,7 @@ class ExperienceBuffer:
             *[self.buffer[idx] for idx in indices]
         )
         weight = (
-            1/(batch_size*np.array([priorities[i] for i in indices])))**beta
+            1/(batch_size*np.array([priorities[i] for i in indices],dtype=np.float32)))**beta
         weight /= max(weight)
         return ((
             torch.stack(state),
@@ -77,7 +77,7 @@ class ExperienceBuffer:
             np.array(dones, dtype=np.bool8),
             torch.stack(next_state)),
             indices,
-            torch.from_numpy(weight)
+            torch.from_numpy(weight).to(device)
         )
 
     def sample_action(self, batch_size, beta):
@@ -90,7 +90,7 @@ class ExperienceBuffer:
             *[self.buffer[idx] for idx in indices]
         )
         weight = (
-            1/(batch_size*np.array([priorities[i] for i in indices])))**beta
+            1/(batch_size*np.array([priorities[i] for i in indices],dtype=np.float32)))**beta
         weight /= max(weight)
         return (
             (torch.stack(state),
@@ -99,7 +99,7 @@ class ExperienceBuffer:
              np.array(dones, dtype=np.bool8),
              torch.stack(next_state)),
             indices,
-            torch.from_numpy(weight)
+            torch.from_numpy(weight).to(device)
         )
 
     def update_td_move(self, indice, td_m):
@@ -229,7 +229,7 @@ class Agent:
         return done_reward
 
     def cal_loss(self, batch, net, tgt_net, device="cuda"):
-        state, action, reward, done, next_state, _ = batch
+        state, action, reward, done, next_state = batch
 
         state_v = state.to(device)
         action_v = torch.tensor(action, dtype=torch.int64).to(device)
@@ -291,8 +291,8 @@ class Agent:
         writer.add_scalar("loss/lossa", loss_a, frame_idx)
         writer.add_scalar("td/max_td_action", max_td_a, frame_idx)
         writer.add_scalar("td/max_td_move", max_td_m, frame_idx)
-        writer.add_scalar("weight/move", batch_m[0], frame_idx)
-        writer.add_scalar("weight/action", batch_a[0], frame_idx)
+        writer.add_scalar("weight/move", weight_m[0], frame_idx)
+        writer.add_scalar("weight/action", weight_a[0], frame_idx)
 
         move_optimizer.zero_grad()
         loss_m.backward()
