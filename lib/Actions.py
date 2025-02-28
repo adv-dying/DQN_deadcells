@@ -2,7 +2,7 @@
 # You can define your actions here
 
 from lib.SendKey import PressKey, ReleaseKey
-from lib.WindowsAPI import grab_screen
+
 import time
 import cv2
 import threading

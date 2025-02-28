@@ -48,13 +48,13 @@ class env:
         player_damaged = 0
 
         # Win and lose conditions
-        if player_hp > 3000 and boss_hp <= 10000:
+        if player_hp > 1 and boss_hp <= 1:
             self.win += 1
             print(f'win,total_win:{self.win}')
             # Win
             return (100, True, player_hp, boss_hp, player_damaged, boss_damaged)
 
-        if player_hp <= 3000:
+        if player_hp <= 1:
             print(f'loss,total_win:{self.win}')
             # Loss
             return (-10, True, player_hp, boss_hp, player_damaged, boss_damaged)
