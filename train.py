@@ -39,7 +39,7 @@ ALPHA = 0.6
 
 device = 'cuda'
 # %%
-writepath = f'runs/dueling_double_DQN_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR2.5/4e-4_reward_cap_action_move_seperate+prioritized_replay_buffer+grab(128,128)_layer_norm_ALPHA_{str(ALPHA)}_latest_td'
+writepath = f'runs/dueling_double_DQN_ALPHA_{str(ALPHA)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR2.5_div_4_e-4/prioritized_replay_buffer+grab(128,128)_linear_td'
 writer = SummaryWriter(log_dir=writepath)
 # %%
 
@@ -63,12 +63,12 @@ class ExperienceBuffer:
                                MIN_PROB)**ALPHA for experience in self.buffer])
         priorities = priorities/np.sum(priorities)
         indices = np.random.choice(
-            len(self.buffer), batch_size, replace=False, p=priorities)
+            len(self.buffer), batch_size, replace=True, p=priorities)
         state, move, action, reward, dones, next_state, _, _ = zip(
             *[self.buffer[idx] for idx in indices]
         )
         weight = (
-            1/(batch_size*np.array([priorities[i] for i in indices],dtype=np.float32)))**beta
+            1/(self.__len__()*np.array([priorities[i] for i in indices], dtype=np.float32)))**beta
         weight /= max(weight)
         return ((
             torch.stack(state),
@@ -85,12 +85,12 @@ class ExperienceBuffer:
                                MIN_PROB)**ALPHA for experience in self.buffer])
         priorities = priorities/np.sum(priorities)
         indices = np.random.choice(
-            len(self.buffer), batch_size, replace=False, p=priorities)
+            len(self.buffer), batch_size, replace=True, p=priorities)
         state, move, action, reward, dones, next_state, _, _ = zip(
             *[self.buffer[idx] for idx in indices]
         )
         weight = (
-            1/(batch_size*np.array([priorities[i] for i in indices],dtype=np.float32)))**beta
+            1/(self.__len__()*np.array([priorities[i] for i in indices], dtype=np.float32)))**beta
         weight /= max(weight)
         return (
             (torch.stack(state),
@@ -102,14 +102,27 @@ class ExperienceBuffer:
             torch.from_numpy(weight).to(device)
         )
 
-    def update_td_move(self, indice, td_m):
+    def update_td_move(self, indice, td_m, a=0.6):
         for td_idx, idx in enumerate(indice):
-            self.buffer[idx] = self.buffer[idx]._replace(TD_move=td_m[td_idx])
+            self.buffer[idx] = self.buffer[idx]._replace(TD_move=self.buffer[idx].TD_move *
+                                                         (1-a)+td_m[td_idx]*a)
 
-    def update_td_action(self, indice, td_a):
+    def update_td_action(self, indice, td_a, a=0.6):
         for td_idx, idx in enumerate(indice):
-            self.buffer[idx] = self.buffer[idx]._replace(
-                TD_action=td_a[td_idx])
+            self.buffer[idx] = self.buffer[idx]._replace(TD_action=self.buffer[idx].TD_action *
+                                                         (1-a)+td_a[td_idx]*a)
+
+    def max_td_move(self):
+        if self.__len__() == 0:
+            return 1.0
+        else:
+            return max([i.TD_move for i in self.buffer])
+
+    def max_td_action(self):
+        if self.__len__() == 0:
+            return 1.0
+        else:
+            return max([i.TD_action for i in self.buffer])
 
 
 # %%
@@ -169,8 +182,6 @@ class Agent:
         self.env = env.env()
         self.hpgetter = GetHp.Hp_getter()
         self.criterion = nn.SmoothL1Loss(reduction='none')
-        self.max_m_td = 1.0
-        self.max_a_ad = 1.0
         # self._reset()
 
     def _reset(self):
@@ -216,8 +227,11 @@ class Agent:
         new_state = self.get_screen.grab()
         self.total_rewards += reward
 
+        cur_max_m = self.buffer.max_td_move()
+        cur_max_a = self.buffer.max_td_action()
+
         exp = Experience(self.state, move, action,
-                         reward, is_done, new_state, self.max_m_td, self.max_a_ad)
+                         reward, is_done, new_state, cur_max_m, cur_max_a)
         self.buffer.append(exp)
 
         self.state = new_state
@@ -275,11 +289,6 @@ class Agent:
         max_td_m = max(td_m)
         max_td_a = max(td_a)
 
-        if self.max_m_td < max_td_m:
-            self.max_m_td = max_td_m
-        if self.max_a_ad < max_td_a:
-            self.max_a_ad = max_td_a
-
         self.buffer.update_td_move(indice_m, td_m)
         self.buffer.update_td_action(indice_a, td_a)
 
@@ -299,7 +308,6 @@ class Agent:
         loss_a.backward()
         torch.nn.utils.clip_grad_value_(action_net.parameters(), 10)
         action_optimizer.step()
-
 
         # change to soft sync
         move_tgt_net_state_dict = move_tgt_net.state_dict()

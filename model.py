@@ -23,12 +23,13 @@ class DQN(nn.Module):
             nn.ReLU(),
             nn.Linear(128, 256),
             nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU()
+
         )
         # Dueling Streams
-        self.a = nn.Linear(256, action_dim)
-        self.v = nn.Linear(256, 1)
+        self.a = nn.Sequential(nn.Linear(256, 256),
+                               nn.ReLU(), nn.Linear(256, action_dim))
+        self.v = nn.Sequential(nn.Linear(256, 256),
+                               nn.ReLU(), nn.Linear(256, 1))
 
     def forward(self, x):
         x = self.net(x)
