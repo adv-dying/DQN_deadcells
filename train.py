@@ -31,15 +31,15 @@ BETA_START = 0.4
 BETA_END = 1.0
 BETA_DECAY = 20000
 
-TAU = 0.001
-LR = 0.00025/4
+TAU = 0.005
+LR = 1e-4
 MIN_PROB = 0.01
 CAPACITY = 10000
 ALPHA = 0.6
 
 device = 'cuda'
 # %%
-writepath = f'runs/dueling_double_DQN_ALPHA_{str(ALPHA)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR2.5_div_4_e-4/prioritized_replay_buffer+grab(128,128)_linear_td'
+writepath = f'runs/dueling_double_DQN_ALPHA_{str(ALPHA)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td'
 writer = SummaryWriter(log_dir=writepath)
 # %%
 
@@ -102,12 +102,12 @@ class ExperienceBuffer:
             torch.from_numpy(weight).to(device)
         )
 
-    def update_td_move(self, indice, td_m, a=0.6):
+    def update_td_move(self, indice, td_m, a=0.7):
         for td_idx, idx in enumerate(indice):
             self.buffer[idx] = self.buffer[idx]._replace(TD_move=self.buffer[idx].TD_move *
                                                          (1-a)+td_m[td_idx]*a)
 
-    def update_td_action(self, indice, td_a, a=0.6):
+    def update_td_action(self, indice, td_a, a=0.7):
         for td_idx, idx in enumerate(indice):
             self.buffer[idx] = self.buffer[idx]._replace(TD_action=self.buffer[idx].TD_action *
                                                          (1-a)+td_a[td_idx]*a)
