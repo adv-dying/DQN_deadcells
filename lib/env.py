@@ -1,10 +1,11 @@
 from lib import Actions, GetHp
 from lib.SendKey import PressKey, ReleaseKey
 import time
+import torch
 
 UP_ARROW = 0x26
 R = 0x52
-
+device='cuda'
 
 class env:
     def __init__(self):
@@ -48,13 +49,13 @@ class env:
         player_damaged = 0
 
         # Win and lose conditions
-        if player_hp > 3000 and boss_hp <= 10000:
+        if player_hp > 1 and boss_hp <= 1:
             self.win += 1
             print(f'win,total_win:{self.win}')
             # Win
             return (100, True, player_hp, boss_hp, player_damaged, boss_damaged)
 
-        if player_hp <= 3000:
+        if player_hp <= 1:
             print(f'loss,total_win:{self.win}')
             # Loss
             return (-10, True, player_hp, boss_hp, player_damaged, boss_damaged)
@@ -82,4 +83,4 @@ class env:
         # Clip the reward to keep it within a desired range
         total_reward = max(min(total_reward, 5), -5)
 
-        return (total_reward, is_done, player_hp, boss_hp, player_damaged, boss_damaged)
+        return (total_reward, is_done, player_hp, boss_hp, torch.tensor(player_damaged).to(device), torch.tensor(boss_damaged).to(device))
