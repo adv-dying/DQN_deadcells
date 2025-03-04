@@ -1,10 +1,11 @@
 from lib import Actions, GetHp
 from lib.SendKey import PressKey, ReleaseKey
 import time
+import torch
 
 UP_ARROW = 0x26
 R = 0x52
-
+device='cuda'
 
 class env:
     def __init__(self):
@@ -82,4 +83,4 @@ class env:
         # Clip the reward to keep it within a desired range
         total_reward = max(min(total_reward, 5), -5)
 
-        return (total_reward, is_done, player_hp, boss_hp, player_damaged, boss_damaged)
+        return (total_reward, is_done, player_hp, boss_hp, torch.tensor(player_damaged).to(device), torch.tensor(boss_damaged).to(device))
