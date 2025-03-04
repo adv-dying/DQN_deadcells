@@ -85,7 +85,7 @@ class ExperienceBuffer:
         return ((
             torch.stack(state),
             np.array(res),
-            np.array(reward, dtype=np.float32),
+            torch.stack(reward),
             np.array(dones, dtype=np.bool8),
             torch.stack(next_state),
             torch.stack(boss),
@@ -187,8 +187,8 @@ class Agent:
         # result = self.hpgetter.set_boss_hp(230437)
         # if result:
         self.env._reset()
-        self.bosshp = torch.tensor(self.hpgetter.get_boss_hp()).to(device)
-        self.playerhp = torch.tensor(self.hpgetter.get_self_hp()).to(device)
+        self.bosshp = torch.tensor([self.hpgetter.get_boss_hp()]).to(device)
+        self.playerhp = torch.tensor([self.hpgetter.get_self_hp()]).to(device)
 
     def play_step(self, move_net, action_net, epsilon, device="cuda"):
         done_reward = None
@@ -199,9 +199,9 @@ class Agent:
 
         else:
             m_q_val_v = move_net(self.state.unsqueeze(0),
-                                 self.bosshp, self.playerhp)
+                                 self.bosshp.unsqueeze(0), self.playerhp.unsqueeze(0))
             a_q_val_v = action_net(self.state.unsqueeze(
-                0), self.bosshp, self.playerhp)
+                0), self.bosshp.unsqueeze(0), self.playerhp.unsqueeze(0))
             _, move_v = torch.max(m_q_val_v, dim=1)
             _, act_v = torch.max(a_q_val_v, dim=1)
             move = int(move_v[0].item())
@@ -242,7 +242,7 @@ class Agent:
 
         state_v = state.to(device)
         action_v = torch.tensor(action, dtype=torch.int64).to(device)
-        reward_v = torch.tensor(reward).to(device)
+        reward_v = torch.tensor(reward).to(device).squeeze()
         next_state_v = next_state.to(device)
         boss_v = torch.tensor(boss).to(device)
         new_boss_v = torch.tensor(new_boss).to(device)

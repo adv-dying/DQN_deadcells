@@ -39,8 +39,6 @@ class DQN(nn.Module):
 
     def forward(self, x, boss, player):
         x = self.net(x)
-        boss=boss.unsqueeze(-1)
-        player=player.unsqueeze(-1)
         x = torch.cat((x, boss,player),dim=1)
         x = self.fc(x)
         a = self.a(x)
@@ -50,8 +48,8 @@ class DQN(nn.Module):
 
 
 if __name__ == '__main__':
-    a = torch.rand((64, 4, 128, 128))
+    a = torch.rand((1, 4, 128, 128))
     net = DQN(3)
-    boss = [2]*64
-    player = [3]*64
-    net(a, torch.tensor(boss),torch.tensor(player))
+    boss = [2]
+    player = [3]
+    net(a, torch.tensor(boss).unsqueeze(-1),torch.tensor(player).unsqueeze(-1))
