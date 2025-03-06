@@ -5,19 +5,22 @@ import torch
 
 UP_ARROW = 0x26
 R = 0x52
-device='cuda'
+device = 'cuda'
+
 
 class env:
     def __init__(self):
         self.hp_getter = GetHp.Hp_getter()
         self.win = 0
+        self.round = 0
 
     def _reset(self):
+        self.round += 1
         Actions.Nothing()
         time.sleep(10)
-        print('move right')
+
         Actions.Move_Right()
-        print('Press the R')
+
         PressKey(R)
         time.sleep(0.1)
         ReleaseKey(R)
@@ -51,12 +54,13 @@ class env:
         # Win and lose conditions
         if player_hp > 1 and boss_hp <= 1:
             self.win += 1
-            print(f'win,total_win:{self.win}')
+            print(f'\nwin,total_win:{self.win},win_rate:{self.win/self.round}')
             # Win
             return (100, True, player_hp, boss_hp, player_damaged, boss_damaged)
 
         if player_hp <= 1:
-            print(f'loss,total_win:{self.win}')
+            print(
+                f'\nloss,total_win:{self.win},win_rate:{self.win/self.round}')
             # Loss
             return (-10, True, player_hp, boss_hp, player_damaged, boss_damaged)
 
@@ -64,11 +68,11 @@ class env:
         player_damaged = pre_player_hp - player_hp
 
         # Normalize damages
-        normalized_boss_damage = min(boss_damaged / 2000, 1)  # Cap at 2000
-        normalized_player_damage = min(player_damaged / 1000, 1)  # Cap at 1000
+        normalized_boss_damage = boss_damaged / 2000 
+        normalized_player_damage =player_damaged / 1000
 
         # Reward for damaging the boss
-        boss_damaged_reward = 3 * normalized_boss_damage
+        boss_damaged_reward = 5 * normalized_boss_damage
 
         # Penalty for taking damage
         player_damaged_penalty = -5 * normalized_player_damage
@@ -81,6 +85,6 @@ class env:
         total_reward = boss_damaged_reward + player_damaged_penalty + dodge_reward
 
         # Clip the reward to keep it within a desired range
-        total_reward = max(min(total_reward, 5), -5)
+        total_reward = max(min(total_reward, 5), -5)-0.01
 
-        return (total_reward, is_done, player_hp, boss_hp, torch.tensor(player_damaged).to(device), torch.tensor(boss_damaged).to(device))
+        return (total_reward, is_done, player_hp, boss_hp, player_damaged, boss_damaged)

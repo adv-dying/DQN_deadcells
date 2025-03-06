@@ -1,7 +1,7 @@
 # %%
 import math
 import pygetwindow
-from model import DQN
+from model import DQN_action, DQN_move
 import numpy as np
 import collections
 import torch
@@ -25,13 +25,13 @@ BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.02
-EPS_DECAY = 10000
+EPS_DECAY = 20000
 
 BETA_START = 0.4
 BETA_END = 1.0
-BETA_DECAY = 10000
+BETA_DECAY = 20000
 
-TAU = 0.005
+TAU = 0.01
 LR = 1e-4
 MIN_PROB = 0.01
 CAPACITY = 10000
@@ -39,7 +39,7 @@ ALPHA = 0.6
 
 device = 'cuda'
 # %%
-writepath = f'runs/dueling_double_DQN_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td'
+writepath = f'runs/dueling_double_DQN_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
 writer = SummaryWriter(log_dir=writepath)
 # %%
 
@@ -76,22 +76,18 @@ class ExperienceBuffer:
         weight = (
             1/(self.__len__()*np.array([priorities[i] for i in indices], dtype=np.float32)))**beta
         weight /= max(weight)
-        if sample_target == 'move':
-            res = move
-        elif sample_target == 'action':
-            res = action
-        else:
-            raise KeyError(f'wrong input:{sample_target}')
+
         return ((
             torch.stack(state),
-            np.array(res),
-            torch.stack(reward),
+            np.array(move),
+            np.array(action),
+            np.array(reward, dtype=np.float32),
             np.array(dones, dtype=np.bool8),
             torch.stack(next_state),
-            torch.stack(boss),
-            torch.stack(new_boss),
-            torch.stack(player),
-            torch.stack(new_player)),
+            torch.tensor(boss).unsqueeze(-1),
+            torch.tensor(new_boss).unsqueeze(-1),
+            torch.tensor(player).unsqueeze(-1),
+            torch.tensor(new_player).unsqueeze(-1)),
             indices,
             torch.from_numpy(weight).to(device)
         )
@@ -120,11 +116,11 @@ class ExperienceBuffer:
 
 
 # %%
-move_net = DQN(3).to(device)
-move_tgt_net = DQN(3).to(device)
+move_net = DQN_move(3).to(device)
+move_tgt_net = DQN_move(3).to(device)
 
-action_net = DQN(5).to(device)
-action_tgt_net = DQN(5).to(device)
+action_net = DQN_action(5).to(device)
+action_tgt_net = DQN_action(5).to(device)
 
 # load the model
 try:
@@ -183,12 +179,11 @@ class Agent:
         self.state = self.get_screen.grab()
         self.total_rewards = 0.0
 
-        # self.hpgetter.set_self_hp(19192)
-        # result = self.hpgetter.set_boss_hp(230437)
-        # if result:
         self.env._reset()
-        self.bosshp = torch.tensor([self.hpgetter.get_boss_hp()]).to(device)
-        self.playerhp = torch.tensor([self.hpgetter.get_self_hp()]).to(device)
+        self.bosshp = self.hpgetter.get_boss_hp()
+        self.playerhp = self.hpgetter.get_self_hp()
+        self.normal_boss_hp = self.bosshp/215249
+        self.normal_player_hp = self.playerhp/15482
 
     def play_step(self, move_net, action_net, epsilon, device="cuda"):
         done_reward = None
@@ -198,14 +193,20 @@ class Agent:
             action = random.randint(0, 4)
 
         else:
-            m_q_val_v = move_net(self.state.unsqueeze(0),
-                                 self.bosshp.unsqueeze(0), self.playerhp.unsqueeze(0))
+
             a_q_val_v = action_net(self.state.unsqueeze(
-                0), self.bosshp.unsqueeze(0), self.playerhp.unsqueeze(0))
-            _, move_v = torch.max(m_q_val_v, dim=1)
+                0), torch.tensor([self.normal_player_hp]).unsqueeze(0).to(device), torch.tensor([self.playerhp]).unsqueeze(0).to(device))
             _, act_v = torch.max(a_q_val_v, dim=1)
-            move = int(move_v[0].item())
             action = int(act_v[0].item())
+
+            one_hot_a_t = torch.zeros(5).to(device)
+            one_hot_a_t[action] = 1
+            m_q_val_v = move_net(self.state.unsqueeze(0),
+                                 one_hot_a_t.unsqueeze(0))
+
+            _, move_v = torch.max(m_q_val_v, dim=1)
+
+            move = int(move_v[0].item())
 
         reward, is_done, new_playerhp, new_bosshp, player_damaged, boss_damaged = self.env.step(
             move, action, self.playerhp, self.bosshp
@@ -215,21 +216,27 @@ class Agent:
         if boss_damaged != 0:
             writer.add_scalar('damage/boss', boss_damaged, frame_idx)
         sys.stdout.write(
-            f'\rreward:{reward},move:{move},action:{action}, is_done:{is_done}, player_hp:{self.playerhp}, boss_hp:{self.bosshp}')
-        sys.stdout.flush()
+            f'\rreward:{reward:.2f},move:{move},action:{action}, is_done:{is_done}, player_hp:{self.playerhp}, boss_hp:{self.bosshp}                                           ')
+        # sys.stdout.flush()
         new_state = self.get_screen.grab()
         self.total_rewards += reward
 
         cur_max_m = self.buffer.max_td_move()
         cur_max_a = self.buffer.max_td_action()
 
+        normal_new_bosshp = new_bosshp/215249
+        normal_new_playerhp = new_playerhp/15482
         exp = Experience(self.state, move, action,
-                         reward, is_done, new_state, cur_max_m, cur_max_a, self.bosshp, new_bosshp, self.playerhp, new_playerhp)
+                         reward, is_done, new_state, cur_max_m, cur_max_a, self.normal_boss_hp, normal_new_bosshp, self.normal_player_hp, normal_new_playerhp)
         self.buffer.append(exp)
 
         self.state = new_state
+
         self.playerhp = new_playerhp
+        self.normal_player_hp = new_playerhp
+
         self.bosshp = new_bosshp
+        self.normal_boss_hp = normal_new_bosshp
 
         if is_done:
             Actions.Nothing()
@@ -237,12 +244,13 @@ class Agent:
 
         return done_reward
 
-    def cal_loss(self, batch, net, tgt_net, device="cuda"):
-        state, action, reward, done, next_state, boss, new_boss, player, new_player = batch
+    def cal_loss_action(self, batch, net, tgt_net, device="cuda"):
+        state, move, action, reward, done, next_state, boss, new_boss, player, new_player = batch
 
         state_v = state.to(device)
+        move_v = torch.tensor(move, dtype=torch.int64).to(device)
         action_v = torch.tensor(action, dtype=torch.int64).to(device)
-        reward_v = torch.tensor(reward).to(device).squeeze()
+        reward_v = torch.tensor(reward).to(device)
         next_state_v = next_state.to(device)
         boss_v = torch.tensor(boss).to(device)
         new_boss_v = torch.tensor(new_boss).to(device)
@@ -271,6 +279,36 @@ class Agent:
             (expected_state-state_value).detach().cpu().numpy())
         return loss, td_error
 
+    def cal_loss_move(self, batch, net, tgt_net, device="cuda"):
+        state, move, action, reward, done, next_state, boss, new_boss, player, new_player = batch
+
+        state_v = state.to(device)
+        move_v = torch.tensor(move, dtype=torch.int64).to(device)
+        reward_v = torch.tensor(reward).to(device)
+        next_state_v = next_state.to(device)
+
+        one_hot = torch.zeros((BATCH_SIZE, 5))
+        index_tensor = torch.from_numpy(action).long()
+        one_hot[torch.arange(BATCH_SIZE), index_tensor] = 1.0
+        one_hot = one_hot.to(device)
+        state_value = (net(state_v, one_hot).gather(
+            1, move_v.unsqueeze(-1))).squeeze(-1)
+
+        with torch.no_grad():
+
+            argmax_a = net(state_v, one_hot).argmax(
+                dim=1).unsqueeze(-1)
+            next_state_value = tgt_net(
+                next_state_v, one_hot).gather(1, argmax_a).squeeze(1)
+
+            next_state_value[done] = 0.0
+
+        expected_state = next_state_value * GAMMA + reward_v
+        loss = self.criterion(state_value, expected_state)
+        td_error = np.absolute(
+            (expected_state-state_value).detach().cpu().numpy())
+        return loss, td_error
+
     def optimize_model(self, frame_idx, beta):
         if buffer.__len__() < BATCH_SIZE:
             return
@@ -280,8 +318,9 @@ class Agent:
         batch_a, indice_a, weight_a = self.buffer.sample(
             BATCH_SIZE, beta, 'action')
 
-        loss_m, td_m = self.cal_loss(batch_m, move_net, move_tgt_net)
-        loss_a, td_a = self.cal_loss(batch_a, action_net, action_tgt_net)
+        loss_m, td_m = self.cal_loss_move(batch_m, move_net, move_tgt_net)
+        loss_a, td_a = self.cal_loss_action(
+            batch_a, action_net, action_tgt_net)
 
         loss_m = torch.dot(loss_m, weight_m)
         loss_a = torch.dot(loss_a, weight_a)
@@ -301,12 +340,12 @@ class Agent:
 
         move_optimizer.zero_grad()
         loss_m.backward()
-        torch.nn.utils.clip_grad_value_(move_net.parameters(), 10)
+        torch.nn.utils.clip_grad_value_(move_net.parameters(), 5)
         move_optimizer.step()
 
         action_optimizer.zero_grad()
         loss_a.backward()
-        torch.nn.utils.clip_grad_value_(action_net.parameters(), 10)
+        torch.nn.utils.clip_grad_value_(action_net.parameters(), 5)
         action_optimizer.step()
 
         # change to soft sync
@@ -356,7 +395,7 @@ if __name__ == '__main__':
             # avoid Deadcells break
             if done_reward == 100:
                 break
-
+            done_reward = done_reward
             total_rewards.append(done_reward)
             mean_reward = np.mean(total_rewards[-100:])
 
@@ -421,7 +460,7 @@ if __name__ == '__main__':
                     time.sleep(1)
                     break
 
-            agent._reset()
+            # agent._reset()
         done_reward = agent.play_step(move_net, action_net, epsilon, device)
         if frame_idx % 4 == 0:
             agent.optimize_model(frame_idx, beta)
