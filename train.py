@@ -11,7 +11,7 @@ from lib import GetScreen, Actions, env, GetHp
 import pickle
 import copy
 
-# from tensorboardX import SummaryWriter
+
 from torch.utils.tensorboard import SummaryWriter
 import time
 import random
@@ -25,11 +25,11 @@ BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.02
-EPS_DECAY = 20000
+EPS_DECAY = 10000
 
 BETA_START = 0.4
 BETA_END = 1.0
-BETA_DECAY = 20000
+BETA_DECAY = 10000
 
 TAU = 0.01
 LR = 1e-4
@@ -39,7 +39,7 @@ ALPHA = 0.6
 
 device = 'cuda'
 # %%
-writepath = f'runs/dueling_double_DQN_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
+writepath = f'runs/dueling_double_DQN_3fc_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
 writer = SummaryWriter(log_dir=writepath)
 # %%
 
@@ -215,8 +215,7 @@ class Agent:
             writer.add_scalar('damage/player', player_damaged, frame_idx)
         if boss_damaged != 0:
             writer.add_scalar('damage/boss', boss_damaged, frame_idx)
-        sys.stdout.write(
-            f'\rreward:{reward:.2f},move:{move},action:{action}, is_done:{is_done}, player_hp:{self.playerhp}, boss_hp:{self.bosshp}                                           ')
+        print(f'reward:{reward:.2f},move:{move},action:{action}, is_done:{is_done}, player_hp:{self.playerhp}, boss_hp:{self.bosshp}              ',end='\r')
         # sys.stdout.flush()
         new_state = self.get_screen.grab()
         self.total_rewards += reward

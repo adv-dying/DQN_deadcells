@@ -8,7 +8,6 @@ class DQN_action(nn.Module):
 
         self.net = nn.Sequential(
             nn.Conv2d(4, 32, kernel_size=8, stride=4),
-
             nn.ReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
             nn.ReLU(),
@@ -23,20 +22,22 @@ class DQN_action(nn.Module):
 
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
             nn.ReLU(),
 
         )
 
         self.a = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(256, action_dim)
+            nn.Linear(128, action_dim)
         )
         self.v = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(256, 1)
+            nn.Linear(128, 1)
         )
 
     def forward(self, x, boss, player):
@@ -70,20 +71,22 @@ class DQN_move(nn.Module):
 
             nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
             nn.ReLU(),
 
         )
 
         self.a = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(256, action_dim)
+            nn.Linear(128, action_dim)
         )
         self.v = nn.Sequential(
-            nn.Linear(256, 256),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(256, 1)
+            nn.Linear(128, 1)
         )
 
     def forward(self, x, action):
