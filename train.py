@@ -1,4 +1,3 @@
-# %%
 import math
 import pygetwindow
 from model import DQN_action, DQN_move
@@ -17,31 +16,31 @@ import time
 import random
 import pickle
 import keyboard
-import sys
+import os
 
 
-# %%
+
 BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.02
-EPS_DECAY = 10000
+EPS_DECAY = 20000
 
 BETA_START = 0.4
 BETA_END = 1.0
-BETA_DECAY = 10000
+BETA_DECAY = 20000
 
 TAU = 0.01
 LR = 1e-4
 MIN_PROB = 0.01
-CAPACITY = 10000
+CAPACITY = 20000
 ALPHA = 0.6
 
 device = 'cuda'
-# %%
+
 writepath = f'runs/dueling_double_DQN_3fc_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
 writer = SummaryWriter(log_dir=writepath)
-# %%
+
 
 Experience = collections.namedtuple(
     "Experience", field_names=["state", "move", "action", "reward", "done", "new_state", "TD_move", "TD_action", "boss", "new_boss", "player", "new_player"]
@@ -115,7 +114,7 @@ class ExperienceBuffer:
             return max([i.TD_action for i in self.buffer])
 
 
-# %%
+
 move_net = DQN_move(3).to(device)
 move_tgt_net = DQN_move(3).to(device)
 
@@ -123,42 +122,40 @@ action_net = DQN_action(5).to(device)
 action_tgt_net = DQN_action(5).to(device)
 
 # load the model
-try:
+if os.path.isfile("./checkpoints/best_move_model.pt") and os.path.isfile("./checkpoints/best_action_model.pt"):
     move_net.load_state_dict(torch.load("./checkpoints/best_move_model.pt"))
     action_net.load_state_dict(torch.load(
         "./checkpoints/best_action_model.pt"))
-
+    move_tgt_net.load_state_dict(move_net.state_dict())
+    action_tgt_net.load_state_dict(action_net.state_dict())
+    print("load model")
+if os.path.isfile("./checkpoints/frame.npy") and os.path.isfile("./checkpoints/total_rewards.npy"):
     frame_idx = int(np.load("./checkpoints/frame.npy"))
     total_rewards = np.load("./checkpoints/total_rewards.npy")
     total_rewards = total_rewards.tolist()
-
-    move_tgt_net.load_state_dict(move_net.state_dict())
-    action_tgt_net.load_state_dict(action_net.state_dict())
-
     print(frame_idx)
-    print("load model")
-except:
+else:
     # if not, set epsilon
     frame_idx = 0
     total_rewards = []
-    print("new model")
+    print("new run")
 
 action_optimizer = optim.Adam(action_net.parameters(), lr=LR, amsgrad=True)
 move_optimizer = optim.Adam(move_net.parameters(), lr=LR, amsgrad=True)
 preframe_idx = frame_idx
 
 
-# %%
+
 # try to load the before buffer
-try:
+if os.path.isfile("./checkpoints/buffer.pickle"):
     with open("./checkpoints/buffer.pickle", "rb") as f:
         buffer = pickle.load(f)
     print("load buffer")
-except:
+else:
     buffer = ExperienceBuffer(capacity=CAPACITY)
     print("new buffer")
 
-# %%
+
 # self.hp=15482
 # boss.hp=215249
 # 15 7 7
@@ -215,7 +212,7 @@ class Agent:
             writer.add_scalar('damage/player', player_damaged, frame_idx)
         if boss_damaged != 0:
             writer.add_scalar('damage/boss', boss_damaged, frame_idx)
-        print(f'reward:{reward:.2f},move:{move},action:{action}, is_done:{is_done}, player_hp:{self.playerhp}, boss_hp:{self.bosshp}              ',end='\r')
+        print(f'reward:{reward:.2f},move:{move},action:{action}, is_done:{is_done}, player_hp:{self.playerhp}, boss_hp:{self.bosshp}              ', end='\r')
         # sys.stdout.flush()
         new_state = self.get_screen.grab()
         self.total_rewards += reward
@@ -229,6 +226,11 @@ class Agent:
                          reward, is_done, new_state, cur_max_m, cur_max_a, self.normal_boss_hp, normal_new_bosshp, self.normal_player_hp, normal_new_playerhp)
         self.buffer.append(exp)
 
+        if is_done:
+            Actions.Nothing()
+            done_reward = self.total_rewards
+            writer.add_scalar('damage/boss_rest', self.bosshp, frame_idx)
+
         self.state = new_state
 
         self.playerhp = new_playerhp
@@ -236,10 +238,6 @@ class Agent:
 
         self.bosshp = new_bosshp
         self.normal_boss_hp = normal_new_bosshp
-
-        if is_done:
-            Actions.Nothing()
-            done_reward = self.total_rewards
 
         return done_reward
 
@@ -364,17 +362,17 @@ class Agent:
 
 
 if __name__ == '__main__':
-    # %%
+
     win = pygetwindow.getWindowsWithTitle('Dead Cells')[0]
     win.size = (960, 540)
 
-    # %%
+
     agent = Agent(buffer)
     # agent.get_screen.show()
     # best_mean_reward = None
     pre_save = frame_idx//10000
     MAX_FRAMES = 1000000
-    # %%
+
 
     done_reward = None
 
@@ -466,7 +464,7 @@ if __name__ == '__main__':
 
     writer.close()
 
-    # # %%
+
     torch.save(move_net.state_dict(), "./checkpoints/best_move_model.pt")
     torch.save(action_net.state_dict(),
                "./checkpoints/best_action_model.pt")
@@ -476,4 +474,4 @@ if __name__ == '__main__':
     with open("./checkpoints/buffer.pickle", "wb") as f:
         pickle.dump(copy.deepcopy(buffer), f)
 
-# %%
+

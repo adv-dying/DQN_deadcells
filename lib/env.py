@@ -38,7 +38,7 @@ class env:
         ReleaseKey(R)
         time.sleep(10)
         Actions.Move_Right()
-        time.sleep(5)
+        time.sleep(8)
         Actions.Nothing()
 
     def step(self, move, action, pre_player_hp, pre_Boss_hp):
@@ -67,15 +67,18 @@ class env:
         boss_damaged = pre_Boss_hp - boss_hp
         player_damaged = pre_player_hp - player_hp
 
-        # Normalize damages
-        normalized_boss_damage = boss_damaged / 2000 
-        normalized_player_damage =player_damaged / 1000
+        normalized_boss_damage = min(boss_damaged / 2000, 1)
+        normalized_player_damage = min(player_damaged / 1000, 1)
+
+        boss_damaged_reward = 3 * normalized_boss_damage
+        player_damaged_penalty = 5 * normalized_player_damage
 
         # Reward for dodging
         dodge_reward = 0.1 if action in {
             1, 2, 3} and player_damaged == 0 else 0
 
         # Calculate total reward
-        total_reward = normalized_boss_damage - normalized_player_damage + dodge_reward-0.01
+        total_reward = boss_damaged_reward - player_damaged_penalty + dodge_reward-0.01
+        total_reward = max(min(total_reward, 5), -5)
 
         return (total_reward, is_done, player_hp, boss_hp, player_damaged, boss_damaged)
