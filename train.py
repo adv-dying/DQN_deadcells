@@ -37,7 +37,7 @@ ALPHA = 0.6
 
 device = 'cuda'
 
-writepath = f'runs/dueling_double_DQN_3fc_Layer_norm_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
+writepath = f'runs/dueling_double_DQN_3fc_Layer_norm_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_fix_td_access_hp_modify_weight'
 writer = SummaryWriter(log_dir=writepath)
 
 
@@ -92,13 +92,12 @@ class ExperienceBuffer:
 
     def update_td_move(self, indice, td_m, a=0.7):
         for td_idx, idx in enumerate(indice):
-            self.buffer[idx] = self.buffer[idx]._replace(TD_move=self.buffer[idx].TD_move *
-                                                         (1-a)+td_m[td_idx]*a)
+            self.buffer[idx] = self.buffer[idx]._replace(TD_move=td_m[td_idx])
 
     def update_td_action(self, indice, td_a, a=0.7):
         for td_idx, idx in enumerate(indice):
-            self.buffer[idx] = self.buffer[idx]._replace(TD_action=self.buffer[idx].TD_action *
-                                                         (1-a)+td_a[td_idx]*a)
+            self.buffer[idx] = self.buffer[idx]._replace(
+                TD_action=td_a[td_idx]*a)
 
     def max_td_move(self):
         if self.__len__() == 0:
@@ -127,15 +126,17 @@ if os.path.isfile("./checkpoints/best_move_model.pt") and os.path.isfile("./chec
     move_tgt_net.load_state_dict(move_net.state_dict())
     action_tgt_net.load_state_dict(action_net.state_dict())
     print("load model")
-if os.path.isfile("./checkpoints/frame.npy") and os.path.isfile("./checkpoints/total_rewards.npy"):
+if os.path.isfile("./checkpoints/frame.npy") and os.path.isfile("./checkpoints/total_rewards.npy") and os.path.isfile("./checkpoints/best_mean.npy"):
     frame_idx = int(np.load("./checkpoints/frame.npy"))
     total_rewards = np.load("./checkpoints/total_rewards.npy")
     total_rewards = total_rewards.tolist()
+    best_mean = float(np.load("./checkpoints/best_mean.npy"))
     print(frame_idx)
 else:
     # if not, set epsilon
     frame_idx = 0
     total_rewards = []
+    best_mean = None
     print("new run")
 
 action_optimizer = optim.Adam(action_net.parameters(), lr=LR, amsgrad=True)
@@ -369,7 +370,6 @@ if __name__ == '__main__':
     MAX_FRAMES = 1000000
 
     done_reward = None
-    best_mean = None
     # numbers of game
     time_start = time.time()
     agent._reset()
@@ -412,9 +412,10 @@ if __name__ == '__main__':
                            "./checkpoints/best_action_model.pt")
                 np.save("./checkpoints/frame.npy", frame_idx)
                 np.save("./checkpoints/total_rewards.npy", total_rewards)
+                np.save("./checkpoints/best_mean.npy", best_mean)
                 # save buffer
                 with open("./checkpoints/buffer.pickle", "wb") as f:
-                    pickle.dump(copy.deepcopy(buffer), f)
+                    pickle.dump(buffer, f)
                 if best_mean is not None:
                     print(
                         "Best mean reward updated %.3f -> %.3f, model saved"
