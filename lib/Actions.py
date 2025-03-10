@@ -45,16 +45,16 @@ def Move_Right():
 def Attack():
     Nothing()
     PressKey(NUM_1)
-    time.sleep(0.1)
+    time.sleep(0.05)
     ReleaseKey(NUM_1)
     Nothing()
-    time.sleep(0.2)
+    time.sleep(0.05)
 
 
 # 4
 def Jump():
     PressKey(UP_ARROW)
-    time.sleep(0.1)
+    time.sleep(0.05)
     ReleaseKey(UP_ARROW)
     Nothing()
 
@@ -62,7 +62,7 @@ def Jump():
 # 5
 def Roll():
     PressKey(L_SHIFT)
-    time.sleep(0.5)
+    time.sleep(0.05)
     ReleaseKey(L_SHIFT)
 
 
@@ -71,13 +71,12 @@ def Shield():
 
     Nothing()
     PressKey(NUM_2)
-    time.sleep(0.1)
+    time.sleep(0.05)
     ReleaseKey(NUM_2)
-    time.sleep(0.1)
 
 
 def Nothing_action():
-    time.sleep(0.2)
+    time.sleep(0.05)
 
 
 # List for action functions

@@ -19,26 +19,25 @@ import keyboard
 import os
 
 
-
 BATCH_SIZE = 64
 GAMMA = 0.99
 EPS_START = 0.9
 EPS_END = 0.02
-EPS_DECAY = 20000
+EPS_DECAY = 10000
 
 BETA_START = 0.4
 BETA_END = 1.0
-BETA_DECAY = 20000
+BETA_DECAY = 10000
 
 TAU = 0.01
 LR = 1e-4
 MIN_PROB = 0.01
-CAPACITY = 20000
+CAPACITY = 10000
 ALPHA = 0.6
 
 device = 'cuda'
 
-writepath = f'runs/dueling_double_DQN_3fc_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
+writepath = f'runs/dueling_double_DQN_3fc_Layer_norm_ALPHA_{str(ALPHA)}_Beta_{str(BETA_DECAY)}_capacity_{CAPACITY}_batch_{str(BATCH_SIZE)}_EPS_DECAY_{str(EPS_DECAY)}_TAU_{str(TAU)}_LR1e-4/prioritized_replay_buffer_IS+grab(128,128)_linear_td_access_hp_modify_weight'
 writer = SummaryWriter(log_dir=writepath)
 
 
@@ -114,7 +113,6 @@ class ExperienceBuffer:
             return max([i.TD_action for i in self.buffer])
 
 
-
 move_net = DQN_move(3).to(device)
 move_tgt_net = DQN_move(3).to(device)
 
@@ -145,7 +143,6 @@ move_optimizer = optim.Adam(move_net.parameters(), lr=LR, amsgrad=True)
 preframe_idx = frame_idx
 
 
-
 # try to load the before buffer
 if os.path.isfile("./checkpoints/buffer.pickle"):
     with open("./checkpoints/buffer.pickle", "rb") as f:
@@ -157,7 +154,7 @@ else:
 
 
 # self.hp=15482
-# boss.hp=215249
+# boss.hp=234930
 # 15 7 7
 
 
@@ -179,7 +176,7 @@ class Agent:
         self.env._reset()
         self.bosshp = self.hpgetter.get_boss_hp()
         self.playerhp = self.hpgetter.get_self_hp()
-        self.normal_boss_hp = self.bosshp/215249
+        self.normal_boss_hp = self.bosshp/234930
         self.normal_player_hp = self.playerhp/15482
 
     def play_step(self, move_net, action_net, epsilon, device="cuda"):
@@ -192,7 +189,7 @@ class Agent:
         else:
 
             a_q_val_v = action_net(self.state.unsqueeze(
-                0), torch.tensor([self.normal_player_hp]).unsqueeze(0).to(device), torch.tensor([self.playerhp]).unsqueeze(0).to(device))
+                0), torch.tensor([self.normal_boss_hp]).unsqueeze(0).to(device), torch.tensor([self.normal_player_hp]).unsqueeze(0).to(device))
             _, act_v = torch.max(a_q_val_v, dim=1)
             action = int(act_v[0].item())
 
@@ -220,7 +217,7 @@ class Agent:
         cur_max_m = self.buffer.max_td_move()
         cur_max_a = self.buffer.max_td_action()
 
-        normal_new_bosshp = new_bosshp/215249
+        normal_new_bosshp = new_bosshp/234930
         normal_new_playerhp = new_playerhp/15482
         exp = Experience(self.state, move, action,
                          reward, is_done, new_state, cur_max_m, cur_max_a, self.normal_boss_hp, normal_new_bosshp, self.normal_player_hp, normal_new_playerhp)
@@ -234,7 +231,7 @@ class Agent:
         self.state = new_state
 
         self.playerhp = new_playerhp
-        self.normal_player_hp = new_playerhp
+        self.normal_player_hp = normal_new_playerhp
 
         self.bosshp = new_bosshp
         self.normal_boss_hp = normal_new_bosshp
@@ -366,16 +363,13 @@ if __name__ == '__main__':
     win = pygetwindow.getWindowsWithTitle('Dead Cells')[0]
     win.size = (960, 540)
 
-
     agent = Agent(buffer)
     # agent.get_screen.show()
     # best_mean_reward = None
-    pre_save = frame_idx//10000
     MAX_FRAMES = 1000000
 
-
     done_reward = None
-
+    best_mean = None
     # numbers of game
     time_start = time.time()
     agent._reset()
@@ -411,9 +405,7 @@ if __name__ == '__main__':
             writer.add_scalar("reward/reward", done_reward, frame_idx)
 
             # save model
-            if frame_idx//10000 > pre_save:
-                # agent._reset()
-                pre_save += 1
+            if best_mean is None or mean_reward > best_mean:
                 torch.save(move_net.state_dict(),
                            "./checkpoints/best_move_model.pt")
                 torch.save(action_net.state_dict(),
@@ -423,12 +415,12 @@ if __name__ == '__main__':
                 # save buffer
                 with open("./checkpoints/buffer.pickle", "wb") as f:
                     pickle.dump(copy.deepcopy(buffer), f)
-                # if best_mean_reward is not None:
-                #     print(
-                #         "Best mean reward updated %.3f -> %.3f, model saved"
-                #         % (best_mean_reward, mean_reward)
-                #     )
-                # best_mean_reward = mean_reward
+                if best_mean is not None:
+                    print(
+                        "Best mean reward updated %.3f -> %.3f, model saved"
+                        % (best_mean, mean_reward)
+                    )
+                best_mean = mean_reward
 
             # reset game
             agent._reset()
@@ -464,14 +456,11 @@ if __name__ == '__main__':
 
     writer.close()
 
-
-    torch.save(move_net.state_dict(), "./checkpoints/best_move_model.pt")
-    torch.save(action_net.state_dict(),
-               "./checkpoints/best_action_model.pt")
-    np.save("./checkpoints/frame.npy", frame_idx)
-    np.save("./checkpoints/total_rewards.npy", total_rewards)
-    # save buffer
-    with open("./checkpoints/buffer.pickle", "wb") as f:
-        pickle.dump(copy.deepcopy(buffer), f)
-
-
+    # torch.save(move_net.state_dict(), "./checkpoints/best_move_model.pt")
+    # torch.save(action_net.state_dict(),
+    #            "./checkpoints/best_action_model.pt")
+    # np.save("./checkpoints/frame.npy", frame_idx)
+    # np.save("./checkpoints/total_rewards.npy", total_rewards)
+    # # save buffer
+    # with open("./checkpoints/buffer.pickle", "wb") as f:
+    #     pickle.dump(copy.deepcopy(buffer), f)

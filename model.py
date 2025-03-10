@@ -19,13 +19,13 @@ class DQN_action(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(9218, 512),
             nn.ReLU(),
-
             nn.Linear(512, 256),
             nn.ReLU(),
             nn.Linear(256, 128),
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
+            nn.LayerNorm(128)
 
         )
 
@@ -75,6 +75,7 @@ class DQN_move(nn.Module):
             nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
+            nn.LayerNorm(128)
 
         )
 
@@ -91,7 +92,7 @@ class DQN_move(nn.Module):
 
     def forward(self, x, action):
         x = self.net(x)
-        x=torch.cat((x,action),1)
+        x = torch.cat((x, action), 1)
         x = self.fc(x)
         a = self.a(x)
         v = self.v(x)
@@ -102,7 +103,7 @@ class DQN_move(nn.Module):
 if __name__ == '__main__':
     a = torch.rand((1, 4, 128, 128))
     net = DQN_move(3)
-    
-    action=torch.zeros(5)
-    action[0]=1
+
+    action = torch.zeros(5)
+    action[0] = 1
     net(a, action.unsqueeze(0))

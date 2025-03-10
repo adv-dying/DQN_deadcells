@@ -17,14 +17,14 @@ class env:
     def _reset(self):
         self.round += 1
         Actions.Nothing()
-        time.sleep(10)
+        time.sleep(6)
 
         Actions.Move_Right()
 
         PressKey(R)
         time.sleep(0.1)
         ReleaseKey(R)
-        time.sleep(1)
+        time.sleep(0.5)
         Actions.Nothing()
 
         # PressKey(UP_ARROW)
@@ -36,9 +36,9 @@ class env:
         PressKey(R)
         time.sleep(0.1)
         ReleaseKey(R)
-        time.sleep(10)
+        time.sleep(5)
         Actions.Move_Right()
-        time.sleep(8)
+        time.sleep(4)
         Actions.Nothing()
 
     def step(self, move, action, pre_player_hp, pre_Boss_hp):
