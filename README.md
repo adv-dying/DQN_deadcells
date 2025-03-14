@@ -15,6 +15,22 @@ https://github.com/user-attachments/assets/b4ff9013-e671-46fb-b28b-3aae9bbb224a
 - Cheat Engine for 2x game speed
 
 # usage
+- the key bind is 1 for the weapon, 2 for the shield, shift for roll, space for jump, and arrow key for move.
+  - It is important because I give the weapon and shield different rewards if you want to modify it in lib/action.py
+  - In my own training, I used Panchaku as the weapon and Front Line Shield as the shield.
+  - For the default of scrolls I pick 15 Brutality, 7 tactics, and 7 survival.
+  - I choose Combo as the mutation.
+  - I change the Accessibility setting
+    - ![image](https://github.com/user-attachments/assets/f6c4c409-5b4d-472b-953e-85dec8a89813)
+    - ![image](https://github.com/user-attachments/assets/ff573db9-1552-4f57-a261-ae64799a4896)
+    - ![image](https://github.com/user-attachments/assets/56060497-9286-4380-b790-14cfd63a344d)
+    - ![image](https://github.com/user-attachments/assets/4e5375dc-139c-4f83-9c06-0cfafaaf6d67)
+    - ![image](https://github.com/user-attachments/assets/0012b9d7-b52b-49bc-914d-1fd0eb4082ad)
+
+
+
+
+
 - please make sure there is a ./checkpoints folder under the main folder because I did not do the detection for that.
 - if you want to train the new model, please open Cheat Engine and use the speed hack to make Dead Cell run 2x speed
 - Then stand in front of this door![image](https://github.com/user-attachments/assets/b747ebca-0bfc-4a51-ba1f-26170a7cfdfb)
