@@ -17,7 +17,7 @@ class env:
     def _reset(self):
         self.round += 1
         Actions.Nothing()
-        time.sleep(6)
+        time.sleep(8)
 
         Actions.Move_Right()
 

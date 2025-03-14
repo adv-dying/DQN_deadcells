@@ -48,7 +48,6 @@ def Attack():
     time.sleep(0.05)
     ReleaseKey(NUM_1)
     Nothing()
-    time.sleep(0.05)
 
 
 # 4

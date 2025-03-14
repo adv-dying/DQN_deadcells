@@ -8,8 +8,6 @@ import torch.nn as nn
 import torch.optim as optim
 from lib import GetScreen, Actions, env, GetHp
 import pickle
-import copy
-
 
 from torch.utils.tensorboard import SummaryWriter
 import time
@@ -29,7 +27,7 @@ BETA_START = 0.4
 BETA_END = 1.0
 BETA_DECAY = 10000
 
-TAU = 0.01
+TAU = 0.001
 LR = 1e-4
 MIN_PROB = 0.01
 CAPACITY = 10000
@@ -130,7 +128,8 @@ if os.path.isfile("./checkpoints/frame.npy") and os.path.isfile("./checkpoints/t
     frame_idx = int(np.load("./checkpoints/frame.npy"))
     total_rewards = np.load("./checkpoints/total_rewards.npy")
     total_rewards = total_rewards.tolist()
-    best_mean = float(np.load("./checkpoints/best_mean.npy"))
+    best_mean = float(
+        np.load("./checkpoints/best_mean.npy"))
     print(frame_idx)
 else:
     # if not, set epsilon
@@ -406,6 +405,13 @@ if __name__ == '__main__':
 
             # save model
             if best_mean is None or mean_reward > best_mean:
+                if best_mean is not None:
+                    print(
+                        "Best mean reward updated %.3f -> %.3f, model saved"
+                        % (best_mean, mean_reward)
+                    )
+                best_mean = mean_reward
+
                 torch.save(move_net.state_dict(),
                            "./checkpoints/best_move_model.pt")
                 torch.save(action_net.state_dict(),
@@ -416,12 +422,6 @@ if __name__ == '__main__':
                 # save buffer
                 with open("./checkpoints/buffer.pickle", "wb") as f:
                     pickle.dump(buffer, f)
-                if best_mean is not None:
-                    print(
-                        "Best mean reward updated %.3f -> %.3f, model saved"
-                        % (best_mean, mean_reward)
-                    )
-                best_mean = mean_reward
 
             # reset game
             agent._reset()
