@@ -48,6 +48,9 @@ https://github.com/user-attachments/assets/b4ff9013-e671-46fb-b28b-3aae9bbb224a
 - lib/GetScreen.py is for getting the screen as the input of the agent
 - lib/SendKey.py is for sending the key.
 
+# todo
+- restructure whole code structure. Make code more clear and clean
+- 
 # Acknowledgement
 - https://github.com/ailec0623/DQN_HollowKnight
 - https://arxiv.org/pdf/1710.02298
