@@ -22,7 +22,7 @@ class GetScreen:
             IMG = self.cam.grab(region=self.region)
             while IMG is None:
                 IMG = self.cam.grab(region=self.region)
-            IMG=IMG[100:400][:]
+            IMG=IMG[150:400][:]
             IMG = cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
             IMG = cv2.resize(IMG, (128, 128))
 
@@ -32,7 +32,7 @@ class GetScreen:
 
     def show(self):
         IMG = self.cam.grab(region=self.region)
-        IMG=IMG[100:400][:]
+        IMG=IMG[150:400][:]
         IMG = cv2.cvtColor(IMG, cv2.COLOR_BGR2GRAY)
         IMG = cv2.resize(IMG, (128, 128))
         cv2.imshow("Screenshot", IMG)
